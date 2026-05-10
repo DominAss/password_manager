@@ -1,44 +1,94 @@
+# -*- coding: utf-8 -*-
 import secrets
 import string
+import json
+import os
 
-# функция печатает список
-def get_all_services():
-    global lines
-    print("You have a password set for these services:")
-    for i, service in enumerate(lines[::2], 1): 
-        print(f"- {service.strip()} [{i}]")
+#ФУНКЦИИ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# запуск файла
+
+def load_file():
+    if not os.path.exists('data.json'): 
+        return []
+    try:
+        with open('data.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError): # ошибка чтения/формата
+        return []
+
+
+# функция записывает в файл
+
+def write_to_file(data):
+    try:
+        with open('data.json', 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        print("Saved!")
+    except IOError:
+        print("Error saving!") # ошибка записи
     return
 
+
+# функция печатает список
+
+def get_all_services(data):
+    if not data: # если список пуст
+        return False
+    print("You have a password set for these services:")
+    for i, item in enumerate(data, 1):
+        print(f"{i}. {item['service']}")
+    print("-" * 20)
+    return True
+
+
+# функция добавляет/обновляет пароль
+
+def add_upd(data, service_name, gen_req):
+    if service_name == -1:
+        add_serv_pass(data, gen_req)
+        return
+    
+    idx = service_name - 1
+    if idx < 0 or idx >= len(data): # проверка номера
+        print("Invalid number!")
+        return
+
+    current_login = data[idx]['login']
+    nlogin = input(f"Enter new login (current: {current_login}): ") or current_login
+
+    if gen_req == '1':
+        npass = input("Enter password: ")
+    else:
+        npass = gen_pass()
+
+    data[idx]['login'] = nlogin
+    data[idx]['pass'] = npass # Перезаписываем строку с паролем
+
+    write_to_file(data)
+
+
 # добавить новый сервис и пароль
-def add_serv_pass(gen_req):
-    global lines
+
+def add_serv_pass(data, gen_req):
     nserv = input("Service: ")
+    if not nserv: return
+    nlogin = input("Login: ") # ввод логина
     if gen_req == '1':
         npass = input("Pass: ")
     else:
         npass = gen_pass()
 
-    lines.append(nserv + '\n')
-    lines.append(npass + '\n')
+    new_entry = {
+    "service": nserv,
+    "login": nlogin,
+    "pass": npass
+}
+    data.append(new_entry)
+    write_to_file(data)
 
-    write_to_file()
 
-# функция добавляет/обновляет пароль
-def add_upd(service_name, gen_req):
-    global lines
-    if service_name == -1:
-        add_serv_pass(gen_req)
-        return
-    if gen_req == '1':
-
-        npass = input("Enter password: ")
-
-    else:
-        npass = gen_pass()
-    
-    service_idx = (service_name - 1) * 2 # формула индекса строк в соответствии с выбором пользователя
-    lines[service_idx + 1] = npass + '\n' # Перезаписываем строку с паролем
-    write_to_file()
+# генерация пароля
 
 def gen_pass():
     l = 12
@@ -49,68 +99,74 @@ def gen_pass():
             return npass
 
 
-# функция записывает в файл
-def write_to_file():
-    global lines
-    with open('data.txt', 'w', encoding='utf-8') as f: # запись обратно
-        f.writelines(lines)
-    print("Saved!")
-    return
+# получение пароля
 
-def get_password():
-    global lines
-    if not lines: # Проверка: если список пустой
-        print("Your list is empty!")
+def get_password(data):
+    if not data: # Проверка: если список пустой
+
+        print("You don't have any passwords.")
         return
 
-    print("For which service do I need to remember the password?")
+    print("For which service do I need to recall the password?")
 
-    get_all_services() # Вызываем твою уже готовую функцию печати списка
+    get_all_services(data) # Вызываем твою уже готовую функцию печати списка
     
     try:
-        choice = int(input("Enter number: "))
-        service_idx = (choice - 1) * 2
+        choice = int(input("Enter number: ")) # ввод номера
+        print('\n')
+        idx = choice - 1 
+
+        if idx < 0 or idx >= len(data): # если номер вне списка
+            raise IndexError
+
         # Печатаем название и пароль
-        print(f"Service: {lines[service_idx].strip()}")
-        print(f"Password: {lines[service_idx + 1].strip()}")
+        print(f"Service: {data[idx]['service']}")
+        print(f"Login: {data[idx]['login']}")
+        print(f"Password: {data[idx]['pass']}")
+        print('\n')
+
     except (ValueError, IndexError): # Более точная обработка ошибок
         print("Invalid number!")
+        print('\n')
+
+
+# НАЧАЛО---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+data = load_file() # читаем файл один раз
 
 while True:
-    with open('data.txt', 'a+', encoding='utf-8') as f: # юзаю a+, чтобы файл создался, если его нет
-        f.seek(0) # кидаю курсор в начало для чтения
-        lines = f.readlines()
-    count = len(lines)
 
     print("Sup, I'm your password manager. Do you want to add a new one(1), recall an existing one(2) or exit(3)?") # выбор !записать/!вспомнить
-    print("1/2/3")
-    req = input()
+    req = input("1/2/3: ")
+    print('\n')
 
     if req == '3':
         print("Bye!")
         break
 
-    if req == '2': # если !вспомнить
-        get_password()
-        if count == 0: # если нечего !вспоминать
-            print("It looks like you don't have any passwords. Do you want to add one?") # будем !добавлять/!не будем
-            print("y/n")
-            req = input()
-            if req == "n": # не (исправил с "2" на "n")
-                print("Bye!") # пока
-                break
+    elif req == '2': # если !вспомнить
+        get_password(data)
 
-    if req == 'y' or req == '1': # если пишем !новый или если добавляем в !пустой
 
-        get_all_services()
+    if req == '1': # если пишем !новый или если добавляем в !пустой
 
-        service_name = int(input("Enter service number(or if you need new service - type '-1'): "))
+        if not data:
+            # если данных нет, сразу идем создавать новый сервис
+            print("No services found. Let's add your first one!")
+            print("Would you like to write it yourself(1) or have it generated for you(2)?")
+            gen_req = input("1/2: ")
+            add_serv_pass(data, gen_req)
+        else:
+            # если данные есть, показываем список и даем выбор
+            get_all_services(data)
 
-        print("Would you like to write it yourself(1) or have it generated for you(2)?") # сам/сгенерировать
-        print("1/2")
-        gen_req = input() # отдельная переменная, чтобы не сбить req
+            try:
+                service_name = int(input("Enter service number(or if you need new service - type '-1'): ")) # ввод числа
+
+                print("Would you like to write it yourself(1) or have it generated for you(2)?") # сам/сгенерировать
+                gen_req = input("1/2: ") # отдельная переменная, чтобы не сбить req
         
-         #что имеется
-        # Проход по !сервисам (только названия)
-
-        add_upd(service_name, gen_req)
+                add_upd(data, service_name, gen_req) # запуск записи
+            except ValueError: # если ввели не цифру
+                print("Invalid input!")
+                print('\n')
