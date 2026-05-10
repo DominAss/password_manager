@@ -41,7 +41,7 @@ def add_upd(service_name, gen_req):
     write_to_file()
 
 def gen_pass():
-    l = 8
+    l = 12
     chars = string.ascii_letters + string.digits + string.punctuation
     while True:
         npass = "".join(secrets.choice(chars) for _ in range(l))
