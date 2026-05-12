@@ -3,27 +3,66 @@ import secrets
 import string
 import json
 import os
+import base64
+import cryptography
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 #ФУНКЦИИ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+# функция генерации ключа шифрования
+
+def generate_key(mas_pass, salt):
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(mas_pass.encode()))
+    return Fernet(key)
+
+
+# функция файла соли
+
+def get_cipher():
+    if not os.path.exists('salt.bin'): # проверяем соль
+        salt = os.urandom(16) # генерация 
+        with open('salt.bin', "wb") as f:
+            f.write(salt)
+    else:
+        with open('salt.bin', "rb") as f: # если есть то просто читаем
+            salt = f.read()
+
+    master_pass = input("Enter Master Password: ") # мастер пароль
+
+    cipher = generate_key(master_pass, salt)
+    return cipher
+
+
 # запуск файла
 
-def load_file():
+def load_file(cipher):
     if not os.path.exists('data.json'): 
         return []
     try:
-        with open('data.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError): # ошибка чтения/формата
-        return []
+        with open('data.json', 'rb') as f:
+            encr_data = f.read()
+            decr_data = cipher.decrypt(encr_data).decode()
+            return json.loads(decr_data)
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 # функция записывает в файл
 
-def write_to_file(data):
+def write_to_file(data, cipher):
+    json_str = json.dumps(data, ensure_ascii=False, indent=4)
+    encr_data = cipher.encrypt(json_str.encode())
     try:
-        with open('data.json', 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+        with open('data.json', 'wb') as f:
+            f.write(encr_data)
         print("Saved!")
     except IOError:
         print("Error saving!") # ошибка записи
@@ -65,7 +104,7 @@ def add_upd(data, service_name, gen_req):
     data[idx]['login'] = nlogin
     data[idx]['pass'] = npass # Перезаписываем строку с паролем
 
-    write_to_file(data)
+    write_to_file(data, cipher)
 
 
 # добавить новый сервис и пароль
@@ -85,7 +124,7 @@ def add_serv_pass(data, gen_req):
     "pass": npass
 }
     data.append(new_entry)
-    write_to_file(data)
+    write_to_file(data, cipher)
 
 
 # генерация пароля
@@ -132,7 +171,9 @@ def get_password(data):
 
 # НАЧАЛО---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-data = load_file() # читаем файл один раз
+cipher = get_cipher()
+
+data = load_file(cipher) # читаем файл один раз
 
 while True:
 
