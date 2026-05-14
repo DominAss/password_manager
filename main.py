@@ -4,14 +4,18 @@ import string
 import json
 import os
 import base64
+
+import tkinter as tk
+from tkinter import messagebox
+
 import cryptography
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-#ФУНКЦИИ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ÔÓÍÊÖÈÈ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-# функция генерации ключа шифрования
+# ôóíêöèÿ ãåíåðàöèè êëþ÷à øèôðîâàíèÿ
 
 def generate_key(mas_pass, salt):
     kdf = PBKDF2HMAC(
@@ -24,24 +28,52 @@ def generate_key(mas_pass, salt):
     return Fernet(key)
 
 
-# функция файла соли
+# ôóíêöèÿ ôàéëà ñîëè
 
 def get_cipher():
-    if not os.path.exists('salt.bin'): # проверяем соль
-        salt = os.urandom(16) # генерация 
+    master_pass = ms_entry.get()
+    if not master_pass:
+        info_label.config(text="Password cannot be empty!")
+        return
+    if not os.path.exists('salt.bin'): # ïðîâåðÿåì ñîëü
+        salt = os.urandom(16) # ãåíåðàöèÿ 
         with open('salt.bin', "wb") as f:
             f.write(salt)
     else:
-        with open('salt.bin', "rb") as f: # если есть то просто читаем
+        with open('salt.bin', "rb") as f: # åñëè åñòü òî ïðîñòî ÷èòàåì
             salt = f.read()
-
-    master_pass = input("Enter Master Password: ") # мастер пароль
-
+    
     cipher = generate_key(master_pass, salt)
-    return cipher
+    data = load_file(cipher)
 
+    # Åñëè data âåðíóëà None (îøèáêà ðàñøèôðîâêè), òî ïàðîëü íåâåðíûé.
+    if data is None:
+        messagebox.showerror("Error!", "Invalid Master Password!")
+        return
 
-# запуск файла
+    messagebox.showinfo("Success!", "Access Granted!")
+
+    main_choice(data, cipher)
+    return
+
+def main_choice(data, cipher):
+    choise = tk.Toplevel(window)
+    choise.title("Keyo")
+    choise.geometry("1200x800") 
+
+    choise_label = tk.Label(choise, text = "Do you want to add a new one, recall an existing one or exit?")
+    
+
+    add_button = tk.Button(choise, text = "Add", command = lambda: messagebox.showinfo("Info", "Add function coming soon!"))
+    recall_button = tk.Button(choise, text = "Recall", command = lambda: get_password(data, choise))
+    exit_button = tk.Button(choise, text = "Exit", command = choise.destroy)
+
+    choise_label.pack(pady = 10)
+    add_button.pack(pady = 10)
+    recall_button.pack(pady = 10)
+    exit_button.pack(pady = 10)
+
+# çàïóñê ôàéëà
 
 def load_file(cipher):
     if not os.path.exists('data.json'): 
@@ -52,10 +84,11 @@ def load_file(cipher):
             decr_data = cipher.decrypt(encr_data).decode()
             return json.loads(decr_data)
     except Exception as e:
-        print(f"Error: {e}")
+        # ÈÑÏÐÀÂËÅÍÎ: Âîçâðàùàåì None ïðè îøèáêå, ÷òîáû ôóíêöèÿ get_cipher ïîíÿëà, ÷òî ïàðîëü íå ïîäîøåë
+        return None 
 
 
-# функция записывает в файл
+# ôóíêöèÿ çàïèñûâàåò â ôàéë
 
 def write_to_file(data, cipher):
     json_str = json.dumps(data, ensure_ascii=False, indent=4)
@@ -65,14 +98,14 @@ def write_to_file(data, cipher):
             f.write(encr_data)
         print("Saved!")
     except IOError:
-        print("Error saving!") # ошибка записи
+        print("Error saving!") # îøèáêà çàïèñè
     return
 
 
-# функция печатает список
+# ôóíêöèÿ ïå÷àòàåò ñïèñîê
 
 def get_all_services(data):
-    if not data: # если список пуст
+    if not data: # åñëè ñïèñîê ïóñò
         return False
     print("You have a password set for these services:")
     for i, item in enumerate(data, 1):
@@ -81,7 +114,7 @@ def get_all_services(data):
     return True
 
 
-# функция добавляет/обновляет пароль
+# ôóíêöèÿ äîáàâëÿåò/îáíîâëÿåò ïàðîëü
 
 def add_upd(data, service_name, gen_req):
     if service_name == -1:
@@ -89,7 +122,7 @@ def add_upd(data, service_name, gen_req):
         return
     
     idx = service_name - 1
-    if idx < 0 or idx >= len(data): # проверка номера
+    if idx < 0 or idx >= len(data): # ïðîâåðêà íîìåðà
         print("Invalid number!")
         return
 
@@ -102,17 +135,17 @@ def add_upd(data, service_name, gen_req):
         npass = gen_pass()
 
     data[idx]['login'] = nlogin
-    data[idx]['pass'] = npass # Перезаписываем строку с паролем
+    data[idx]['pass'] = npass # Ïåðåçàïèñûâàåì ñòðîêó ñ ïàðîëåì
 
     write_to_file(data, cipher)
 
 
-# добавить новый сервис и пароль
+# äîáàâèòü íîâûé ñåðâèñ è ïàðîëü
 
 def add_serv_pass(data, gen_req):
     nserv = input("Service: ")
     if not nserv: return
-    nlogin = input("Login: ") # ввод логина
+    nlogin = input("Login: ") # ââîä ëîãèíà
     if gen_req == '1':
         npass = input("Pass: ")
     else:
@@ -127,87 +160,115 @@ def add_serv_pass(data, gen_req):
     write_to_file(data, cipher)
 
 
-# генерация пароля
+# ãåíåðàöèÿ ïàðîëÿ
 
-def gen_pass():
+def gen_pass(target_label):
     l = 12
     chars = string.ascii_letters + string.digits + string.punctuation
     while True:
         npass = "".join(secrets.choice(chars) for _ in range(l))
         if any(c.islower() for c in npass) and any(c.isdigit() for c in npass) and any(c.isupper() for c in npass) and any(c in string.punctuation for c in npass):
+            target_label.config(text = npass)
             return npass
 
 
-# получение пароля
+# ïîëó÷åíèå ïàðîëÿ
 
-def get_password(data):
-    if not data: # Проверка: если список пустой
-
-        print("You don't have any passwords.")
-        return
-
-    print("For which service do I need to recall the password?")
-
-    get_all_services(data) # Вызываем твою уже готовую функцию печати списка
+def get_password(data, choise):
+    choise.destroy()
+    get_pass = tk.Toplevel(window)
+    get_pass.title("Keyo")
+    get_pass.geometry("1200x800") 
     
-    try:
-        choice = int(input("Enter number: ")) # ввод номера
-        print('\n')
-        idx = choice - 1 
+    # ÈÑÏÐÀÂËÅÍÎ: Âðåìåííî ïðèâÿçàëè ê çàãëóøêå
+    add_button = tk.Button(get_pass, text = "Add", command = lambda: messagebox.showinfo("Info", "Add function coming soon!"))
+    get_label = tk.Label(get_pass, text = "")
+    listbox = tk.Listbox(get_pass)
+    
+    # ÈÑÏÐÀÂËÅÍÎ: Ïðèâÿçàëè êíîïêó Recall ê òâîåé æå ôóíêöèè show_selected, êîòîðóþ òû íàïèñàë íèæå!
+    recall = tk.Button(get_pass, text = "Recall", command = lambda: show_selected(data, listbox))
 
-        if idx < 0 or idx >= len(data): # если номер вне списка
-            raise IndexError
-
-        # Печатаем название и пароль
-        print(f"Service: {data[idx]['service']}")
-        print(f"Login: {data[idx]['login']}")
-        print(f"Password: {data[idx]['pass']}")
-        print('\n')
-
-    except (ValueError, IndexError): # Более точная обработка ошибок
-        print("Invalid number!")
-        print('\n')
-
-
-# НАЧАЛО---------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-cipher = get_cipher()
-
-data = load_file(cipher) # читаем файл один раз
-
-while True:
-
-    print("Sup, I'm your password manager. Do you want to add a new one(1), recall an existing one(2) or exit(3)?") # выбор !записать/!вспомнить
-    req = input("1/2/3: ")
-    print('\n')
-
-    if req == '3':
-        print("Bye!")
-        break
-
-    elif req == '2': # если !вспомнить
-        get_password(data)
-
-
-    if req == '1': # если пишем !новый или если добавляем в !пустой
-
-        if not data:
-            # если данных нет, сразу идем создавать новый сервис
-            print("No services found. Let's add your first one!")
-            print("Would you like to write it yourself(1) or have it generated for you(2)?")
-            gen_req = input("1/2: ")
-            add_serv_pass(data, gen_req)
-        else:
-            # если данные есть, показываем список и даем выбор
-            get_all_services(data)
-
-            try:
-                service_name = int(input("Enter service number(or if you need new service - type '-1'): ")) # ввод числа
-
-                print("Would you like to write it yourself(1) or have it generated for you(2)?") # сам/сгенерировать
-                gen_req = input("1/2: ") # отдельная переменная, чтобы не сбить req
+    if not data: # Ïðîâåðêà: åñëè ñïèñîê ïóñòîé
+        get_label.config(text = "You don't have any passwords. Would you like to add a new one?")
         
-                add_upd(data, service_name, gen_req) # запуск записи
-            except ValueError: # если ввели не цифру
-                print("Invalid input!")
-                print('\n')
+    for i in data:
+        listbox.insert(tk.END, i['service'])
+
+    add_button.pack(pady = 10)
+    get_label.pack(pady = 10)
+    listbox.pack(pady = 10)
+    recall.pack(pady = 10)
+
+    # ÈÑÏÐÀÂËÅÍÎ: Óáðàí ñòàðûé êîíñîëüíûé áëîê try-except ñ input(), 
+    # òàê êàê òåïåðü âûáîð ïðîèñõîäèò ÷åðåç Listbox è êíîïêó Recall íà ýêðàíå.
+    
+    get_pass.mainloop() # ÈÑÏÐÀÂËÅÍÎ: Äîáàâëåí mainloop äëÿ îêíà get_pass, ÷òîáû îíî íå çàêðûâàëîñü ñðàçó
+
+
+def show_selected(test_data, listbox):
+    selected_index = listbox.curselection() 
+    if selected_index:
+        idx = selected_index[0]
+        account = test_data[idx]
+        info = f"Login: {account['login']}\nPassword: {account['pass']}"
+        messagebox.showinfo("Success!", info)
+        
+
+
+def success():
+    gen = tk.Tk()
+    gen.title("Keyo")
+    gen.geometry("450x250") 
+
+    test_data = [
+    {"service": "Google", "login": "user@gmail.com", "pass": "G123"},
+    {"service": "Yandex", "login": "user@ya.ru", "pass": "Y456"},
+    {"service": "GitHub", "login": "git_user", "pass": "Git789"}
+]
+
+    listbox = tk.Listbox(gen)
+    label = tk.Label(gen, text = "")
+    my_button = tk.Button(gen, text = "Generate!", command = lambda: gen_pass(label))
+    view = tk.Button(gen, text = "view", command = lambda: show_selected(test_data, listbox))
+    
+    
+    for i in test_data:
+        listbox.insert(tk.END, i['service'])
+
+    view.pack(pady = 10)
+    listbox.pack(pady = 10)
+    label.pack(pady = 10)
+    my_button.pack(pady = 10)
+
+    gen.mainloop()
+
+def test_print():
+    t = my_entry.get()
+    if t == "1234":
+        messagebox.showinfo("Success!", "Access Granted!")
+        window.destroy()
+        success()
+        return
+    messagebox.showerror("Error!", "Access Denied!")
+    
+
+# ÍÀ×ÀËÎ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+window = tk.Tk()
+window.title("Keyo")
+window.geometry("1200x800") 
+
+info_label = tk.Label(window, text = "")
+ms_entry = tk.Entry(window, show = '*')
+check_button = tk.Button(window, text="Enter", command = get_cipher)
+
+if not os.path.exists('salt.bin'):
+    info_label.config(text = "Hello! It looks like you're a new user. Our program relies on your master password. Please create one and enter it in this window. The program won't work without it, so please remember it.")
+else:
+    info_label.config(text = "Nice to see you again, please enter your master password.")
+
+info_label.pack(pady = 10)
+ms_entry.pack(pady = 10)
+check_button.pack(pady = 10)
+
+window.mainloop()
