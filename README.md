@@ -1,8 +1,8 @@
-# Kayo — Crypto Password Manager (In Progress) 🚀
+# Kayo — Crypto Password Manager (In Progress)
 
-Графический менеджер паролей на Python (Tkinter) с Zero-Knowledge шифрованием.
+Графический менеджер паролей на Python с Zero-Knowledge шифрованием.
 
-### Текущий статус проекта (v6.0-alpha) (Текущая)
+### Version 6.0-alpha (Текущая)
 Проект находится в процессе миграции с консольного интерфейса на полноценный GUI. 
 
 ### Version 5.0 
