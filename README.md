@@ -1,4 +1,4 @@
-# Kayo — Crypto Password Manager `In Progress`
+# Kayo — Crypto Password Manager In Progress
 
 Графический менеджер паролей на Python с Zero-Knowledge шифрованием. Данные хранятся локально в изолированном JSON-файле и защищены современными криптографическими алгоритмами.
 
